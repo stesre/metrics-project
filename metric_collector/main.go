@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"time"
 
@@ -10,25 +11,66 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
-func main() {
+type Metrics struct {
+	CPUUsage          float64 `json:"cpu_usage"`
+	LogicalCoreCount  int     `json:"cpu_logical_core_count"`
+	PhysicalCoreCount int     `json:"cpu_physical_core_count"`
+	MemUsedPercent    float64 `json:"mem_used_percent"`
+	DiskUsedPercent   float64 `json:"disk_used_percent"`
+	Timestamp         string  `json:"timestamp"`
+}
+
+func getMetrics(seconds_to_calc_cpu time.Duration) (*Metrics, error) {
 	// Fetch CPU percentage
-	seconds_to_calc_cpu := 3 * time.Second
-	percent, _ := cpu.Percent(seconds_to_calc_cpu, false)
-	fmt.Printf("CPU Percent: %v\n", percent)
+	percent, err := cpu.Percent(seconds_to_calc_cpu, false)
+	if err != nil {
+		return nil, err
+	}
 
 	// Fetch local core count
-	logical_cores, _ := cpu.Counts(true)
-	fmt.Printf("CPU Cores (logical): %v\n", logical_cores)
+	cpuLogicalCoreCount, err := cpu.Counts(true)
+	if err != nil {
+		return nil, err
+	}
 
 	// Fetch physical core count
-	physical_cores, _ := cpu.Counts(false)
-	fmt.Printf("CPU Cores (physical): %v\n", physical_cores)
+	cpuPhysicalCoreCount, err := cpu.Counts(false)
+	if err != nil {
+		return nil, err
+	}
 
 	// Fetch Memory usage
-	v, _ := mem.VirtualMemory()
-	fmt.Printf("Memory Usage: %v\n", v.UsedPercent)
+	memory, err := mem.VirtualMemory()
+	if err != nil {
+		return nil, err
+	}
 
 	// Fetch Disk usage
-	d, _ := disk.Usage("/")
-	fmt.Printf("Disk Usage: %v\n", math.Round(d.UsedPercent))
+	disk, err := disk.Usage("/")
+	if err != nil {
+		return nil, err
+	}
+
+	// Create Metrics struct
+	metrics := &Metrics{
+		CPUUsage:          percent[0],
+		LogicalCoreCount:  cpuLogicalCoreCount,
+		PhysicalCoreCount: cpuPhysicalCoreCount,
+		MemUsedPercent:    math.Round(memory.UsedPercent),
+		DiskUsedPercent:   math.Round(disk.UsedPercent),
+		Timestamp:         time.Now().Format(time.RFC3339),
+	}
+
+	return metrics, nil
+}
+
+func main() {
+	// Seconds to wait for calculating CPU usage
+	seconds_to_calc_cpu := 3 * time.Second
+	metrics, err := getMetrics(seconds_to_calc_cpu)
+	if err != nil {
+		log.Fatalf("Error getting metrics: %v", err)
+	}
+
+	fmt.Printf("Metrics collected: %+v\n", metrics)
 }
