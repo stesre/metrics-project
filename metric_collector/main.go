@@ -20,6 +20,12 @@ type Metrics struct {
 	Timestamp         string  `json:"timestamp"`
 }
 
+// toFixedPoint rounds a floating-point number to a specified number of decimal places (precision).
+func toFixedPoint(num float64, precision int) float64 {
+	output := math.Pow(10, float64(precision))
+	return float64(math.Round(num*output)) / output
+}
+
 func getMetrics(seconds_to_calc_cpu time.Duration) (*Metrics, error) {
 	// Fetch CPU percentage
 	percent, err := cpu.Percent(seconds_to_calc_cpu, false)
@@ -53,11 +59,11 @@ func getMetrics(seconds_to_calc_cpu time.Duration) (*Metrics, error) {
 
 	// Create Metrics struct
 	metrics := &Metrics{
-		CPUUsage:          percent[0],
+		CPUUsage:          toFixedPoint(percent[0], 2),
 		LogicalCoreCount:  cpuLogicalCoreCount,
 		PhysicalCoreCount: cpuPhysicalCoreCount,
-		MemUsedPercent:    math.Round(memory.UsedPercent),
-		DiskUsedPercent:   math.Round(disk.UsedPercent),
+		MemUsedPercent:    toFixedPoint(memory.UsedPercent, 2),
+		DiskUsedPercent:   toFixedPoint(disk.UsedPercent, 2),
 		Timestamp:         time.Now().Format(time.RFC3339),
 	}
 
